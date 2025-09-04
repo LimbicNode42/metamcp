@@ -26,6 +26,7 @@
     "basic-auth": "^2.0.1",
     "better-auth": "^1.2.9",
     "cors": "^2.8.5",
+    "cosmiconfig": "^9.0.0",
     "cross-spawn": "^7.0.6",
     "dotenv": "^16.5.0",
     "drizzle-orm": "^0.44.2",
