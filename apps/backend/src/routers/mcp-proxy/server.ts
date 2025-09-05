@@ -18,6 +18,7 @@ import mcpProxy from "../../lib/mcp-proxy";
 import { transformDockerUrl } from "../../lib/metamcp/client";
 import { resolveEnvVariables } from "../../lib/metamcp/utils";
 import { ProcessManagedStdioTransport } from "../../lib/stdio-transport/process-managed-transport";
+import { resolveDockerCommand, validateDockerArgs, isDockerCommand, processDockerEnvironment } from "../../lib/docker-support/docker-command-resolver";
 import { betterAuthMcpMiddleware } from "../../middleware/better-auth-mcp.middleware";
 
 const SSE_HEADERS_PASSTHROUGH = ["authorization"];
@@ -166,9 +167,28 @@ const createTransport = async (req: express.Request): Promise<Transport> => {
     // Resolve environment variable placeholders
     const resolvedQueryEnv = resolveEnvVariables(queryEnv);
 
-    const env = { ...process.env, ...defaultEnvironment, ...resolvedQueryEnv };
+    let env = { ...process.env, ...defaultEnvironment, ...resolvedQueryEnv };
 
-    const { cmd, args } = findActualExecutable(command, origArgs);
+    let cmd: string;
+    let args: string[];
+
+    // Use our custom Docker resolver for better Docker support
+    if (isDockerCommand(command)) {
+      const validatedArgs = validateDockerArgs(origArgs);
+      // For Docker commands, inject environment variables as -e flags
+      const argsWithEnv = processDockerEnvironment(resolvedQueryEnv, validatedArgs);
+      const resolved = resolveDockerCommand(command, argsWithEnv);
+      cmd = resolved.cmd;
+      args = resolved.args;
+      // Don't pass env to ProcessManagedStdioTransport for Docker commands
+      // as environment is handled via -e flags in the Docker command
+      env = { ...process.env, ...defaultEnvironment };
+    } else {
+      // For non-Docker commands, use spawn-rx resolution
+      const resolved = findActualExecutable(command, origArgs);
+      cmd = resolved.cmd;
+      args = resolved.args;
+    }
 
     // Check if this command is in cooldown
     if (isStdioInCooldown(cmd, args, env)) {
@@ -455,7 +475,20 @@ serverRouter.get("/stdio", async (req, res) => {
           ...defaultEnvironment,
           ...resolvedQueryEnv,
         };
-        const { cmd, args } = findActualExecutable(command, origArgs);
+        
+        let cmd: string;
+        let args: string[];
+        
+        if (isDockerCommand(command)) {
+          const validatedArgs = validateDockerArgs(origArgs);
+          const resolved = resolveDockerCommand(command, validatedArgs);
+          cmd = resolved.cmd;
+          args = resolved.args;
+        } else {
+          const resolved = findActualExecutable(command, origArgs);
+          cmd = resolved.cmd;
+          args = resolved.args;
+        }
 
         setStdioCooldown(cmd, args, env);
         console.log(
@@ -501,7 +534,20 @@ serverRouter.get("/stdio", async (req, res) => {
               ...defaultEnvironment,
               ...resolvedQueryEnv,
             };
-            const { cmd, args } = findActualExecutable(command, origArgs);
+            
+            let cmd: string;
+            let args: string[];
+            
+            if (isDockerCommand(command)) {
+              const validatedArgs = validateDockerArgs(origArgs);
+              const resolved = resolveDockerCommand(command, validatedArgs);
+              cmd = resolved.cmd;
+              args = resolved.args;
+            } else {
+              const resolved = findActualExecutable(command, origArgs);
+              cmd = resolved.cmd;
+              args = resolved.args;
+            }
 
             setStdioCooldown(cmd, args, env);
             console.log(

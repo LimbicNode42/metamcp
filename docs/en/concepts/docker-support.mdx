@@ -1,0 +1,244 @@
+# Docker Support for MetaMCP
+
+MetaMCP now supports running MCP servers in Docker containers as STDIO servers. This enables better isolation, consistent environments, and easy distribution of MCP servers.
+
+## Quick Start
+
+### Example Docker MCP Server Configuration
+
+```json
+{
+  "name": "github-mcp-docker",
+  "type": "STDIO",
+  "command": "docker",
+  "args": [
+    "run",
+    "-i",
+    "--rm",
+    "ghcr.io/github/github-mcp-server"
+  ],
+  "env": {
+    "GITHUB_PERSONAL_ACCESS_TOKEN": "your-token-here",
+    "GITHUB_TOOLSETS": "all"
+  }
+}
+```
+
+### Available Docker MCP Servers
+
+1. **GitHub MCP Server**
+   ```bash
+   Image: ghcr.io/github/github-mcp-server
+   Environment: GITHUB_PERSONAL_ACCESS_TOKEN, GITHUB_TOOLSETS
+   ```
+
+2. **Filesystem MCP Server**
+   ```bash
+   Image: ghcr.io/modelcontextprotocol/server-filesystem
+   Volumes: Mount directories you want to access
+   ```
+
+3. **PostgreSQL MCP Server**
+   ```bash
+   Image: ghcr.io/modelcontextprotocol/server-postgres
+   Environment: DATABASE_URL
+   ```
+
+## How It Works
+
+### Automatic Flag Injection
+
+MetaMCP automatically adds essential Docker flags:
+- `-i` (interactive) - Required for STDIO communication
+- `--rm` (auto-remove) - Cleanup containers after use
+
+### Environment Variable Handling
+
+Environment variables are automatically converted to Docker `-e` flags:
+
+**Input:**
+```json
+{
+  "command": "docker",
+  "args": ["run", "myimage"],
+  "env": {
+    "API_KEY": "secret",
+    "DEBUG": "true"
+  }
+}
+```
+
+**Executed Command:**
+```bash
+docker run -i --rm -e API_KEY=secret -e DEBUG=true myimage
+```
+
+### Volume Mounting
+
+To mount volumes, include them in your args:
+
+```json
+{
+  "command": "docker",
+  "args": [
+    "run",
+    "-v", "/host/path:/container/path",
+    "myimage"
+  ]
+}
+```
+
+### Networking
+
+For containers that need network access:
+
+```json
+{
+  "command": "docker",
+  "args": [
+    "run",
+    "--network", "host",
+    "myimage"
+  ]
+}
+```
+
+## Examples
+
+### 1. GitHub MCP Server
+
+```json
+{
+  "name": "github-mcp",
+  "description": "GitHub integration via Docker",
+  "type": "STDIO",
+  "command": "docker",
+  "args": [
+    "run",
+    "-i",
+    "--rm",
+    "ghcr.io/github/github-mcp-server"
+  ],
+  "env": {
+    "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}",
+    "GITHUB_TOOLSETS": "all"
+  }
+}
+```
+
+### 2. Custom MCP Server with Volume
+
+```json
+{
+  "name": "filesystem-mcp",
+  "description": "Filesystem access via Docker",
+  "type": "STDIO", 
+  "command": "docker",
+  "args": [
+    "run",
+    "-v", "/workspace:/workspace:ro",
+    "ghcr.io/modelcontextprotocol/server-filesystem",
+    "/workspace"
+  ]
+}
+```
+
+### 3. Database MCP Server
+
+```json
+{
+  "name": "postgres-mcp",
+  "description": "PostgreSQL integration",
+  "type": "STDIO",
+  "command": "docker",
+  "args": [
+    "run",
+    "--network", "host",
+    "ghcr.io/modelcontextprotocol/server-postgres"
+  ],
+  "env": {
+    "DATABASE_URL": "postgresql://user:pass@localhost:5432/db"
+  }
+}
+```
+
+## Best Practices
+
+### Security
+- Use read-only volumes when possible (`-v /path:/path:ro`)
+- Limit network access if not needed
+- Use specific image tags instead of `latest`
+- Store sensitive data in environment variables
+
+### Performance
+- Pre-pull images: `docker pull image:tag`
+- Use smaller base images (Alpine, distroless)
+- Consider image caching strategies
+
+### Debugging
+- Add `--name container-name` for easier debugging
+- Use `docker logs container-name` to see container output
+- Remove `--rm` temporarily to inspect failed containers
+
+## Environment Variable Interpolation
+
+MetaMCP supports environment variable interpolation in Docker configurations:
+
+```json
+{
+  "env": {
+    "API_KEY": "${MY_API_KEY}",
+    "DATABASE_URL": "${DB_CONNECTION_STRING}"
+  }
+}
+```
+
+Variables are resolved from:
+1. Process environment variables
+2. MetaMCP configuration
+3. Runtime environment
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Container not found**
+   ```bash
+   docker pull your-image:tag
+   ```
+
+2. **Permission denied**
+   - Check Docker daemon is running
+   - Verify user has Docker permissions
+
+3. **Environment variables not working**
+   - Verify variable names match container expectations
+   - Check variable interpolation syntax
+
+4. **Network connectivity issues**
+   - Use `--network host` for localhost access
+   - Configure proper network settings
+
+### Debug Mode
+
+Enable debug logging for Docker commands by setting:
+```bash
+export DOCKER_DEBUG=1
+```
+
+## Limitations
+
+- Only `docker run` commands are supported (no docker-compose yet)
+- Containers must support STDIO communication
+- Interactive containers only (-i flag required)
+- Auto-cleanup enabled (--rm flag required)
+
+## Contributing
+
+To add support for new Docker-based MCP servers:
+
+1. Create the server Docker image
+2. Ensure it supports STDIO communication
+3. Document environment variables and volumes needed
+4. Test with MetaMCP
+5. Submit example configuration

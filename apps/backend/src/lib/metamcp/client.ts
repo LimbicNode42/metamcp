@@ -6,6 +6,7 @@ import { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { ServerParameters } from "@repo/zod-types";
 
 import { ProcessManagedStdioTransport } from "../stdio-transport/process-managed-transport";
+import { isDockerCommand, processDockerEnvironment, validateDockerArgs } from "../docker-support/docker-command-resolver";
 import { metamcpLogStore } from "./log-store";
 import { resolveEnvVariables } from "./utils";
 
@@ -44,10 +45,22 @@ export const createMetaMcpClient = (
       ? resolveEnvVariables(serverParams.env)
       : undefined;
 
+    let command = serverParams.command || "";
+    let args = serverParams.args || [];
+    let env = resolvedEnv;
+
+    // Handle Docker commands specially
+    if (isDockerCommand(command)) {
+      // For Docker commands, inject environment variables as -e flags
+      args = processDockerEnvironment(resolvedEnv, validateDockerArgs(args));
+      // Don't pass env to ProcessManagedStdioTransport for Docker commands
+      env = undefined;
+    }
+
     const stdioParams: StdioServerParameters = {
-      command: serverParams.command || "",
-      args: serverParams.args || undefined,
-      env: resolvedEnv,
+      command,
+      args,
+      env,
       stderr: "pipe",
     };
     transport = new ProcessManagedStdioTransport(stdioParams);

@@ -313,6 +313,12 @@ export default function McpServersPage() {
                                 )}
                               />
                             </FormControl>
+                            {field.value?.toLowerCase() === "docker" && (
+                              <div className="text-sm text-muted-foreground p-2 bg-blue-50 dark:bg-blue-950 rounded-md">
+                                💡 <strong>Docker detected!</strong> Use args like: <code>run -i --rm your-image</code>
+                                <br />Environment variables will be automatically converted to <code>-e</code> flags.
+                              </div>
+                            )}
                             <FormMessage />
                           </FormItem>
                         )}
@@ -327,9 +333,25 @@ export default function McpServersPage() {
                             <FormControl>
                               <Input
                                 {...field}
-                                placeholder={t("mcp-servers:argsPlaceholder")}
+                                placeholder={
+                                  form.watch("command")?.toLowerCase() === "docker"
+                                    ? "run -i --rm ghcr.io/github/github-mcp-server"
+                                    : t("mcp-servers:argsPlaceholder")
+                                }
                               />
                             </FormControl>
+                            {form.watch("command")?.toLowerCase() === "docker" && (
+                              <div className="text-sm text-muted-foreground">
+                                <details className="cursor-pointer">
+                                  <summary className="font-medium">📖 Docker Examples</summary>
+                                  <div className="mt-2 space-y-1 text-xs">
+                                    <div><strong>GitHub:</strong> <code>run -i --rm ghcr.io/github/github-mcp-server</code></div>
+                                    <div><strong>Filesystem:</strong> <code>run -i --rm -v /workspace:/workspace ghcr.io/modelcontextprotocol/server-filesystem</code></div>
+                                    <div><strong>Custom:</strong> <code>run -i --rm --network host your-image:tag</code></div>
+                                  </div>
+                                </details>
+                              </div>
+                            )}
                             <FormMessage />
                           </FormItem>
                         )}
