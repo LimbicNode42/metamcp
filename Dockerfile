@@ -73,7 +73,7 @@ RUN apt-get update && apt-get install -y \
 
 # Create non-root user with proper home directory
 RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 --home /home/nextjs nextjs && \
+RUN adduser --uid 1001 --gid 1001 --home /home/nextjs --shell /bin/bash nextjs && \
     mkdir -p /home/nextjs/.cache/node/corepack && \
     chown -R nextjs:nodejs /home/nextjs
 

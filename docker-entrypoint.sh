@@ -31,7 +31,7 @@ setup_docker_permissions() {
         usermod -aG docker nextjs 2>/dev/null || true
         
         # Test Docker access
-        if su nextjs -c "docker ps" > /dev/null 2>&1; then
+        if runuser -u nextjs -- docker ps > /dev/null 2>&1; then
             echo "✅ Docker access confirmed for nextjs user"
         else
             echo "⚠️  Docker access test failed, but continuing..."
@@ -93,7 +93,7 @@ echo "Switching to nextjs user for application startup..."
 # Start backend in the background as nextjs user
 echo "Starting backend server..."
 cd /app/apps/backend
-su nextjs -c "PORT=12009 node dist/index.js" &
+runuser -u nextjs -- sh -c "PORT=12009 node dist/index.js" &
 BACKEND_PID=$!
 
 # Wait a moment for backend to start
@@ -109,7 +109,7 @@ echo "✅ Backend server started successfully (PID: $BACKEND_PID)"
 # Start frontend
 echo "Starting frontend server..."
 cd /app/apps/frontend
-su nextjs -c "PORT=12008 pnpm start" &
+runuser -u nextjs -- sh -c "PORT=12008 pnpm start" &
 FRONTEND_PID=$!
 
 # Wait a moment for frontend to start
