@@ -34,6 +34,7 @@ export function resolveDockerCommand(
 
 /**
  * Validates and normalizes Docker run arguments for MCP servers
+ * Also handles Docker-in-Docker networking considerations
  */
 export function validateDockerArgs(args: string[]): string[] {
   if (args.length === 0 || args[0] !== "run") {
@@ -51,6 +52,15 @@ export function validateDockerArgs(args: string[]): string[] {
   if (!normalizedArgs.includes("--rm")) {
     // Add auto-removal flag if not present (for cleanup)
     normalizedArgs.splice(1, 0, "--rm");
+  }
+
+  // Handle Docker-in-Docker networking
+  // If we're running inside Docker and the container needs to access host services
+  if (process.env.TRANSFORM_LOCALHOST_TO_DOCKER_INTERNAL === "true") {
+    // Add extra hosts mapping for containers that need to access the host
+    if (!normalizedArgs.some(arg => arg.includes("--add-host"))) {
+      normalizedArgs.splice(1, 0, "--add-host", "host.docker.internal:host-gateway");
+    }
   }
 
   return normalizedArgs;

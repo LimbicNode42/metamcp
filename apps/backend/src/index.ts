@@ -2,6 +2,7 @@ import express from "express";
 
 import { auth } from "./auth";
 import { initializeIdleServers } from "./lib/startup";
+import dockerTestRouter from "./routers/docker-test";
 import mcpProxyRouter from "./routers/mcp-proxy";
 import oauthRouter from "./routers/oauth";
 import publicEndpointsRouter from "./routers/public-metamcp";
@@ -82,6 +83,9 @@ app.use("/mcp-proxy", mcpProxyRouter);
 // Mount tRPC routes
 app.use("/trpc", trpcRouter);
 
+// Mount Docker test routes (for development and debugging)
+app.use("/docker-test", dockerTestRouter);
+
 app.listen(12009, async () => {
   console.log(`Server is running on port 12009`);
   console.log(`Auth routes available at: http://localhost:12009/api/auth`);
@@ -92,6 +96,7 @@ app.listen(12009, async () => {
     `MCP Proxy routes available at: http://localhost:12009/mcp-proxy`,
   );
   console.log(`tRPC routes available at: http://localhost:12009/trpc`);
+  console.log(`Docker test routes available at: http://localhost:12009/docker-test`);
 
   // Wait a moment for the server to be fully ready to handle incoming connections,
   // then initialize idle servers (prevents connection errors when MCP servers connect back)

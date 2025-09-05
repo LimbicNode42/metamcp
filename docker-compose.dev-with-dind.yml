@@ -1,0 +1,68 @@
+services:
+  app:
+    container_name: metamcp-dev
+    build: .
+    env_file:
+      - .env.local
+    ports:
+      - "12008:12008"
+    volumes:
+      # Mount Docker socket for Docker-in-Docker support
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mount current directory for development
+      - .:/app
+      - /app/node_modules
+      - /app/apps/frontend/node_modules
+      - /app/apps/backend/node_modules
+    environment:
+      # Postgres connection details
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres-dev}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5433}
+      POSTGRES_USER: ${POSTGRES_USER:-metamcp_dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-metamcp_dev}
+      
+      # Database configuration
+      DATABASE_URL: postgresql://${POSTGRES_USER:-metamcp_dev}:${POSTGRES_PASSWORD:-dev_password}@${POSTGRES_HOST:-postgres-dev}:${POSTGRES_PORT:-5433}/${POSTGRES_DB:-metamcp_dev}
+      
+      # Application URL configuration
+      APP_URL: ${APP_URL:-http://localhost:12008}
+      NEXT_PUBLIC_APP_URL: ${APP_URL:-http://localhost:12008}
+      
+      # Auth configuration
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-secret-key}
+      
+      # Docker networking fix
+      TRANSFORM_LOCALHOST_TO_DOCKER_INTERNAL: "true"
+      
+      # Docker-in-Docker configuration
+      DOCKER_HOST: unix:///var/run/docker.sock
+      
+      # Development mode
+      NODE_ENV: development
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: "no"
+    networks:
+      - metamcp-dev-network
+
+  postgres-dev:
+    container_name: postgres-dev
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-metamcp_dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-metamcp_dev}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - metamcp-dev-network
+
+networks:
+  metamcp-dev-network:
+    driver: bridge
+
+volumes:
+  postgres_dev_data:

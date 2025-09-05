@@ -9,6 +9,8 @@ services:
       - "12008:12008"
     volumes:
       - /mnt/nas/services/postgres/certs/postgres.crt:/app/postgres.crt:ro
+      # Mount Docker socket for Docker-in-Docker support
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       # Postgres connection details
       POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
@@ -29,6 +31,9 @@ services:
       
       # Docker networking fix
       TRANSFORM_LOCALHOST_TO_DOCKER_INTERNAL: ${TRANSFORM_LOCALHOST_TO_DOCKER_INTERNAL:-true}
+      
+      # Docker-in-Docker configuration
+      DOCKER_HOST: unix:///var/run/docker.sock
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: "no"
