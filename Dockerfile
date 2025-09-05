@@ -71,11 +71,17 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Create docker group (will be modified at runtime to match host)
+RUN groupadd -g 999 docker || true
+
 # Create non-root user with proper home directory
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --uid 1001 --gid 1001 --home /home/nextjs --shell /bin/bash nextjs && \
     mkdir -p /home/nextjs/.cache/node/corepack && \
     chown -R nextjs:nodejs /home/nextjs
+
+# Add nextjs user to docker group (GID will be updated at runtime)
+RUN usermod -aG docker nextjs
 
 # Copy built applications
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next ./apps/frontend/.next

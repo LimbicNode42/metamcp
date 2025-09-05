@@ -21,20 +21,34 @@ setup_docker_permissions() {
             echo "Creating docker group with GID $DOCKER_SOCK_GID"
             addgroup --gid $DOCKER_SOCK_GID docker
         else
-            # Modify existing docker group to match socket GID
-            echo "Updating docker group to GID $DOCKER_SOCK_GID"
-            groupmod -g $DOCKER_SOCK_GID docker 2>/dev/null || true
+            # Get current docker group GID
+            CURRENT_DOCKER_GID=$(getent group docker | cut -d: -f3)
+            if [ "$CURRENT_DOCKER_GID" != "$DOCKER_SOCK_GID" ]; then
+                echo "Updating docker group from GID $CURRENT_DOCKER_GID to $DOCKER_SOCK_GID"
+                groupmod -g $DOCKER_SOCK_GID docker 2>/dev/null || true
+            else
+                echo "Docker group GID already matches socket GID: $DOCKER_SOCK_GID"
+            fi
         fi
         
         # Add nextjs user to docker group
         echo "Adding nextjs user to docker group"
         usermod -aG docker nextjs 2>/dev/null || true
         
+        # Ensure Docker socket has proper permissions
+        chmod 666 /var/run/docker.sock 2>/dev/null || true
+        
         # Test Docker access
         if runuser -u nextjs -- docker ps > /dev/null 2>&1; then
             echo "✅ Docker access confirmed for nextjs user"
         else
-            echo "⚠️  Docker access test failed, but continuing..."
+            echo "⚠️  Docker access test failed, checking details..."
+            echo "Socket permissions:"
+            ls -la /var/run/docker.sock
+            echo "User groups:"
+            runuser -u nextjs -- id
+            echo "Attempting Docker version check:"
+            runuser -u nextjs -- docker --version 2>&1 || true
         fi
     else
         echo "⚠️  Docker socket not found - Docker functionality will not be available"
