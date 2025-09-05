@@ -4,6 +4,43 @@ set -e
 
 echo "Starting MetaMCP services..."
 
+# Function to setup Docker permissions
+setup_docker_permissions() {
+    echo "Setting up Docker permissions..."
+    
+    # Check if Docker socket exists
+    if [ -S /var/run/docker.sock ]; then
+        echo "Docker socket found at /var/run/docker.sock"
+        
+        # Get the group ID of the Docker socket
+        DOCKER_SOCK_GID=$(stat -c %g /var/run/docker.sock)
+        echo "Docker socket group ID: $DOCKER_SOCK_GID"
+        
+        # Check if docker group exists, if not create it with the correct GID
+        if ! getent group docker > /dev/null 2>&1; then
+            echo "Creating docker group with GID $DOCKER_SOCK_GID"
+            addgroup --gid $DOCKER_SOCK_GID docker
+        else
+            # Modify existing docker group to match socket GID
+            echo "Updating docker group to GID $DOCKER_SOCK_GID"
+            groupmod -g $DOCKER_SOCK_GID docker 2>/dev/null || true
+        fi
+        
+        # Add nextjs user to docker group
+        echo "Adding nextjs user to docker group"
+        usermod -aG docker nextjs 2>/dev/null || true
+        
+        # Test Docker access
+        if su nextjs -c "docker ps" > /dev/null 2>&1; then
+            echo "✅ Docker access confirmed for nextjs user"
+        else
+            echo "⚠️  Docker access test failed, but continuing..."
+        fi
+    else
+        echo "⚠️  Docker socket not found - Docker functionality will not be available"
+    fi
+}
+
 # Function to wait for postgres
 wait_for_postgres() {
     echo "Waiting for PostgreSQL to be ready..."
@@ -41,16 +78,22 @@ POSTGRES_HOST=${POSTGRES_HOST:-postgres}
 POSTGRES_PORT=${POSTGRES_PORT:-5432}
 POSTGRES_USER=${POSTGRES_USER:-postgres}
 
+# Setup Docker permissions first
+setup_docker_permissions
+
 # Wait for PostgreSQL
 wait_for_postgres
 
 # Run migrations
 run_migrations
 
-# Start backend in the background
+# Switch to nextjs user for running the application
+echo "Switching to nextjs user for application startup..."
+
+# Start backend in the background as nextjs user
 echo "Starting backend server..."
 cd /app/apps/backend
-PORT=12009 node dist/index.js &
+su nextjs -c "PORT=12009 node dist/index.js" &
 BACKEND_PID=$!
 
 # Wait a moment for backend to start
@@ -66,7 +109,7 @@ echo "✅ Backend server started successfully (PID: $BACKEND_PID)"
 # Start frontend
 echo "Starting frontend server..."
 cd /app/apps/frontend
-PORT=12008 pnpm start &
+su nextjs -c "PORT=12008 pnpm start" &
 FRONTEND_PID=$!
 
 # Wait a moment for frontend to start

@@ -77,9 +77,6 @@ RUN adduser --system --uid 1001 --home /home/nextjs nextjs && \
     mkdir -p /home/nextjs/.cache/node/corepack && \
     chown -R nextjs:nodejs /home/nextjs
 
-# Add nextjs user to docker group for Docker access
-RUN usermod -aG docker nextjs
-
 # Copy built applications
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next ./apps/frontend/.next
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/package.json ./apps/frontend/
@@ -101,10 +98,11 @@ RUN pnpm install --prod
 RUN cd apps/backend && pnpm add drizzle-kit@0.31.1
 
 # Copy startup script
-COPY --chown=nextjs:nodejs docker-entrypoint.sh ./
+COPY --chown=root:root docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
-USER nextjs
+# Don't switch to nextjs user yet - we need root for Docker setup
+# USER nextjs will be handled in the entrypoint script
 
 # Expose frontend port (Next.js)
 EXPOSE 12008
