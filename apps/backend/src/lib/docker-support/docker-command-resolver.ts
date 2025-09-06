@@ -78,30 +78,57 @@ export function processDockerEnvironment(
     return args;
   }
 
+  console.log("[Docker] Processing environment variables:", env);
+  console.log("[Docker] Original args:", args);
+
   const processedArgs = [...args];
   const runIndex = processedArgs.indexOf("run");
   
   if (runIndex === -1) {
+    console.log("[Docker] No 'run' command found in args");
     return processedArgs;
   }
 
-  // Insert environment variables as -e flags after 'run' and before image name
+  // Find the insertion point after 'run' and any existing flags
   let insertIndex = runIndex + 1;
   
-  // Skip existing flags to find the right insertion point
-  while (insertIndex < processedArgs.length && processedArgs[insertIndex].startsWith("-")) {
+  // Skip existing flags and their values to find where the image name starts
+  while (insertIndex < processedArgs.length) {
+    const arg = processedArgs[insertIndex];
+    
+    // If we hit an argument that doesn't start with -, this is likely the image name
+    if (!arg.startsWith("-")) {
+      break;
+    }
+    
+    // Skip this flag
     insertIndex++;
-    // Skip the value if this flag takes one
-    if (insertIndex < processedArgs.length && !processedArgs[insertIndex].startsWith("-")) {
+    
+    // If this is a flag that takes a value (not a boolean flag), skip the value too
+    if (insertIndex < processedArgs.length && 
+        !processedArgs[insertIndex].startsWith("-") &&
+        // Known boolean flags that don't take values
+        !["--rm", "--interactive", "-i", "--tty", "-t", "--detach", "-d"].includes(arg)) {
       insertIndex++;
     }
   }
 
-  // Insert environment variables
+  console.log("[Docker] Insertion index:", insertIndex);
+
+  // Insert environment variables as -e flags
+  const envArgs: string[] = [];
   for (const [key, value] of Object.entries(env)) {
-    processedArgs.splice(insertIndex, 0, "-e", `${key}=${value}`);
-    insertIndex += 2;
+    // Use separate -e flag for each environment variable
+    envArgs.push("-e");
+    envArgs.push(`${key}=${value}`);
   }
+
+  console.log("[Docker] Environment args to insert:", envArgs);
+
+  // Insert all environment args at once
+  processedArgs.splice(insertIndex, 0, ...envArgs);
+
+  console.log("[Docker] Final processed args:", processedArgs);
 
   return processedArgs;
 }
